@@ -42,7 +42,6 @@ def show_board_data(board: List[CellType], problem: SunGlass) -> None:
     def get_pos(pos: CellPos) -> int:
         return pos.x + pos.y * problem.width
 
-
     # 初期表示内容を決定する
     board_str = ['□' for x in board]
 
