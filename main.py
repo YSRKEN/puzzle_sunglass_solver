@@ -1,5 +1,7 @@
 import json
 
+from model.SunGlass import SunGlass
+
 
 def solve_from_path(path: str) -> None:
     """問題ファイルをファイルパスから読み込んで処理する
@@ -14,8 +16,8 @@ def solve_from_path(path: str) -> None:
         標準出力で処理結果を返す
     """
     with open(path) as f:
-        data = json.load(f)
-        print(data)
+        problem = SunGlass.from_dict(json.load(f))
+        print(problem)
 
 
 if __name__ == '__main__':
