@@ -599,6 +599,63 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
     return output
 
 
+def solve_by_tactics(board: List[CellType], problem: SunGlass, show_log_flg=True) -> List[CellType]:
+    """各種定石を使用して盤面を埋める
+
+    Parameters
+    ----------
+    board
+        盤面
+    problem
+        問題
+    show_log_flg
+        途中経過を表示するならTrue
+
+    Returns
+    -------
+        埋めた後の盤面
+    """
+    while True:
+        # レンズ同士が接触しないように空白を設置
+        next_board = pattern_do_not_join_lenses(board, problem)
+        if not is_equal(board, next_board):
+            board = next_board
+            if show_log_flg:
+                print('・レンズ同士が接触しないように空白を設置')
+                show_board_data(board, problem)
+            continue
+
+        # 各ブリッジの双翼に生えているレンズの、塗りつぶし状態・上下左右の空白状態を同期
+        next_board = pattern_sync_bridge_lenses(board, problem)
+        if not is_equal(board, next_board):
+            board = next_board
+            if show_log_flg:
+                print('・塗りつぶし状態・上下左右の空白状態を同期')
+                show_board_data(board, problem)
+            continue
+
+        # ヒント数字に従い、ちょうど塗りつぶせるなら塗り潰す
+        next_board = pattern_hint(board, problem)
+        if not is_equal(board, next_board):
+            board = next_board
+            if show_log_flg:
+                print('・ヒント数字に従い塗りつぶせるなら塗り潰す')
+                show_board_data(board, problem)
+            continue
+
+        # どのブリッジからも塗りつぶせない位置のマスは空白マス
+        next_board = pattern_can_not_reach(board, problem)
+        if not is_equal(board, next_board):
+            board = next_board
+            if show_log_flg:
+                print('・どこからも塗り潰せなければそこは空白マス')
+                show_board_data(board, problem)
+            continue
+        break
+
+    return board
+
+
 def solve(problem: SunGlass) -> None:
     """問題データから計算を行い、解答を標準出力で返す
 
@@ -614,42 +671,25 @@ def solve(problem: SunGlass) -> None:
 
     # 初期盤面データを作成する
     board = create_board_from_problem(problem)
+    print('【問題】')
     show_board_data(board, problem)
 
     # 各種定石を適用する
-    while True:
-        # レンズ同士が接触しないように空白を設置
-        next_board = pattern_do_not_join_lenses(board, problem)
-        if not is_equal(board, next_board):
-            print('・レンズ同士が接触しないように空白を設置')
-            board = next_board
-            show_board_data(board, problem)
-            continue
+    board = solve_by_tactics(board, problem, False)
+    print('【前処理結果】')
+    show_board_data(board, problem)
 
-        # 各ブリッジの双翼に生えているレンズの、塗りつぶし状態・上下左右の空白状態を同期
-        next_board = pattern_sync_bridge_lenses(board, problem)
-        if not is_equal(board, next_board):
-            print('・塗りつぶし状態・上下左右の空白状態を同期')
-            board = next_board
-            show_board_data(board, problem)
+    # 定石で収まらない場合は背理法を用いる
+    print('【背理法】')
+    for y in range(problem.height):
+        if board[0 + y * problem.width] != CellType.UNKNOWN:
             continue
+        board2 = board.copy()
+        board2[0 + y * problem.width] = CellType.LENS
+        show_board_data(solve_by_tactics(board2, problem, False), problem)
 
-        # ヒント数字に従い、ちょうど塗りつぶせるなら塗り潰す
-        next_board = pattern_hint(board, problem)
-        if not is_equal(board, next_board):
-            print('・ヒント数字に従い塗りつぶせるなら塗り潰す')
-            board = next_board
-            show_board_data(board, problem)
-            continue
-
-        # どのブリッジからも塗りつぶせない位置のマスは空白マス
-        next_board = pattern_can_not_reach(board, problem)
-        if not is_equal(board, next_board):
-            print('・どこからも塗り潰せなければそこは空白マス')
-            board = next_board
-            show_board_data(board, problem)
-            continue
-        break
+    print('【結果】')
+    show_board_data(board, problem)
 
 
 def solve_from_path(path: str) -> None:
