@@ -825,6 +825,14 @@ def is_invalid_board_wrapper(input_board: List[CellType], problem: SunGlass) -> 
         return True
 
 
+def is_invalid_board_wrapper_2(input_board: List[CellType], problem: SunGlass) -> bool:
+    try:
+        temp_board = solve_by_1st_absurdum(input_board, problem, False)
+        return is_invalid_board(temp_board, problem)
+    except AlgorithmException:
+        return True
+
+
 def solve_by_1st_absurdum(board: List[CellType], problem: SunGlass, show_log_flg=True) -> List[CellType]:
     """1段階背理法
 
@@ -887,6 +895,68 @@ def solve_by_1st_absurdum(board: List[CellType], problem: SunGlass, show_log_flg
     return output_board
 
 
+def solve_by_2nd_absurdum(board: List[CellType], problem: SunGlass, show_log_flg=True) -> List[CellType]:
+    """2段階背理法
+
+    Parameters
+    ----------
+    board
+        盤面
+    problem
+        問題
+    show_log_flg
+        途中経過を表示するならTrue
+
+    Returns
+    -------
+        埋めたあとの盤面
+    """
+
+    output_board = board.copy()
+    while True:
+        # 1段階背理法で盤面を埋める
+        board2 = solve_by_1st_absurdum(output_board, problem, show_log_flg)
+        if not is_equal(output_board, board2):
+            output_board = board2
+            continue
+
+        if show_log_flg:
+            print('(2段階背理法開始)')
+        flg = False
+        for i in range(len(output_board)):
+            if output_board[i] != CellType.UNKNOWN:
+                continue
+            # print(f'(座標{pos_int_to_tuple(i, problem.width)}に背理法)')
+
+            # レンズと仮定して、矛盾すればそれはレンズではない
+            output_board[i] = CellType.LENS
+            if is_invalid_board_wrapper_2(output_board, problem):
+                output_board[i] = CellType.BLANK
+                if show_log_flg:
+                    print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}を空白に')
+                    show_board_data(output_board, problem)
+                flg = True
+                break
+
+            # 空白と仮定して、矛盾すればそれは空白ではない
+            output_board[i] = CellType.BLANK
+            if is_invalid_board_wrapper_2(output_board, problem):
+                output_board[i] = CellType.LENS
+                if show_log_flg:
+                    print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}をレンズに')
+                    show_board_data(output_board, problem)
+                flg = True
+                break
+
+            output_board[i] = CellType.UNKNOWN
+        if not flg:
+            if show_log_flg:
+                print('(2段階背理法終了)')
+            break
+
+    return output_board
+
+
 def solve(problem: SunGlass) -> None:
     """問題データから計算を行い、解答を標準出力で返す
 
@@ -906,7 +976,7 @@ def solve(problem: SunGlass) -> None:
     show_board_data(board, problem)
 
     # 解析
-    board2 = solve_by_1st_absurdum(board, problem)
+    board2 = solve_by_2nd_absurdum(board, problem)
 
     print('【結果】')
     show_board_data(board2, problem)
