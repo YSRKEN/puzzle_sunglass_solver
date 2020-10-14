@@ -354,6 +354,7 @@ def calc_reverse_lens(lens: List[Tuple[int, int]], from_point: Tuple[int, int], 
 
 def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List[CellType]:
     """各ブリッジの双翼に生えているレンズの、塗りつぶし状態・上下左右の空白状態を同期
+    同期不可能な場合は例外を投げる
 
     Parameters
     ----------
@@ -387,7 +388,10 @@ def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List
         appending_lens_cells = (set(right_lens_reverse) - set(left_lens)) | (set(left_lens_reverse) - set(right_lens))
         for pos in appending_lens_cells:
             if 0 <= pos[0] < problem.width and 0 <= pos[1] < problem.height:
-                output[pos[0] + pos[1] * problem.width] = CellType.LENS
+                if output[pos[0] + pos[1] * problem.width] != CellType.UNKNOWN:
+                    raise ArithmeticError('塗りつぶし状態を同期できません')
+                else:
+                    output[pos[0] + pos[1] * problem.width] = CellType.LENS
 
         # レンズの周囲の空白マスの状態を同期する
         left_blank_cells_reverse = calc_reverse_lens(left_blank_cells, left_point, right_point)
@@ -701,7 +705,7 @@ def is_invalid_board(board: List[CellType], problem: SunGlass) -> bool:
     for bridge in problem.bridge:
         bridge_cells.add(bridge.cell[0].x + bridge.cell[0].y * problem.width)
         bridge_cells.add(bridge.cell[-1].x + bridge.cell[-1].y * problem.width)
-    checked_cells: Set[int] = set()
+
     for i in range(len(board)):
         # どのブリッジにも属していない、孤立レンズを検索する
         if board[i] != CellType.LENS:
@@ -738,6 +742,13 @@ def solve(problem: SunGlass) -> None:
     show_board_data(board, problem)
 
     # 解析
+    def is_invalid_board_wrapper(input_board: List[CellType]) -> bool:
+        try:
+            temp_board = solve_by_tactics(input_board, problem)
+            return is_invalid_board(temp_board, problem)
+        except ArithmeticError:
+            return True
+
     print('【解析】')
     while True:
         # 定石で盤面を埋める
@@ -746,27 +757,27 @@ def solve(problem: SunGlass) -> None:
             board = board2
             continue
 
+        print('(背理法開始)')
         flg = False
         for i in range(len(board)):
             if board[i] != CellType.UNKNOWN:
                 continue
+            # print(f'(座標{pos_int_to_tuple(i, problem.width)}に背理法)')
 
             # レンズと仮定して、矛盾すればそれはレンズではない
             board[i] = CellType.LENS
-            board2 = solve_by_tactics(board, problem, False)
-            if is_invalid_board(board2, problem):
+            if is_invalid_board_wrapper(board):
                 board[i] = CellType.BLANK
-                print('・背理法')
+                print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}を空白に')
                 show_board_data(board, problem)
                 flg = True
                 break
 
             # 空白と仮定して、矛盾すればそれは空白ではない
             board[i] = CellType.BLANK
-            board2 = solve_by_tactics(board, problem, False)
-            if is_invalid_board(board2, problem):
+            if is_invalid_board_wrapper(board):
                 board[i] = CellType.LENS
-                print('・背理法')
+                print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}をレンズに')
                 show_board_data(board, problem)
                 flg = True
                 break
