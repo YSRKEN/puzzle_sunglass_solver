@@ -656,6 +656,24 @@ def solve_by_tactics(board: List[CellType], problem: SunGlass, show_log_flg=True
     return board
 
 
+def is_invalid_board(board: List[CellType], problem: SunGlass) -> bool:
+    """矛盾が存在する盤面の場合はTrue
+
+    Parameters
+    ----------
+    board
+        盤面
+    problem
+        問題
+
+    Returns
+    -------
+        矛盾があればTrue
+    """
+
+    return False
+
+
 def solve(problem: SunGlass) -> None:
     """問題データから計算を行い、解答を標準出力で返す
 
@@ -674,19 +692,43 @@ def solve(problem: SunGlass) -> None:
     print('【問題】')
     show_board_data(board, problem)
 
-    # 各種定石を適用する
-    board = solve_by_tactics(board, problem, False)
-    print('【前処理結果】')
-    show_board_data(board, problem)
-
-    # 定石で収まらない場合は背理法を用いる
-    print('【背理法】')
-    for y in range(problem.height):
-        if board[0 + y * problem.width] != CellType.UNKNOWN:
+    # 解析
+    print('【解析】')
+    while True:
+        # 定石で盤面を埋める
+        board2 = solve_by_tactics(board, problem)
+        if not is_equal(board, board2):
+            board = board2
             continue
-        board2 = board.copy()
-        board2[0 + y * problem.width] = CellType.LENS
-        show_board_data(solve_by_tactics(board2, problem, False), problem)
+
+        flg = False
+        for i in range(len(board)):
+            if board[i] != CellType.UNKNOWN:
+                continue
+
+            # レンズと仮定して、矛盾すればそれはレンズではない
+            board[i] = CellType.LENS
+            board2 = solve_by_tactics(board, problem, False)
+            if is_invalid_board(board2, problem):
+                board[i] = CellType.BLANK
+                print('・背理法')
+                show_board_data(board, problem)
+                flg = True
+                break
+
+            # 空白と仮定して、矛盾すればそれは空白ではない
+            board[i] = CellType.BLANK
+            board2 = solve_by_tactics(board, problem, False)
+            if is_invalid_board(board2, problem):
+                board[i] = CellType.LENS
+                print('・背理法')
+                show_board_data(board, problem)
+                flg = True
+                break
+
+            board[i] = CellType.UNKNOWN
+        if not flg:
+            break
 
     print('【結果】')
     show_board_data(board, problem)
