@@ -262,16 +262,41 @@ def find_around_blank_cells(board: List[CellType], width: int, height: int, lens
     # noinspection PyTypeChecker
     output: Set[Tuple[int, int]] = set()
     for x, y in lens:
-        for offset in ((0, -1), (1, 0), (0, 1), (-1, 0)):
-            x2 = x + offset[0]
-            y2 = y + offset[1]
-            pos2 = x2 + y2 * width
-
-            # 盤面からはみ出た際、もしくは空白マスだった場合は追加
-            if 0 <= x2 < width and 0 <= y2 < height and board[pos2] != CellType.BLANK:
+        for pos in get_next_pos(x + y * width, width, width * height):
+            if board[pos] != CellType.BLANK:
                 continue
 
-            output.add((x2, y2))
+            output.add((pos % width, pos // width))
+    return list(output)
+
+
+def find_around_unknown_cells(board: List[CellType], width: int, height: int, lens: List[Tuple[int, int]])\
+        -> List[Tuple[int, int]]:
+    """レンズの周囲における、「レンズの周囲の不明マス」の一覧を取得する
+
+    Parameters
+    ----------
+    board
+        盤面
+    width
+        横幅
+    height
+        縦幅
+    lens
+        レンズ
+
+    Returns
+    -------
+        「レンズの周囲の不明マス」の一覧
+    """
+    # noinspection PyTypeChecker
+    output: Set[Tuple[int, int]] = set()
+    for x, y in lens:
+        for pos in get_next_pos(x + y * width, width, width * height):
+            if board[pos] != CellType.UNKNOWN:
+                continue
+
+            output.add((pos % width, pos // width))
     return list(output)
 
 
@@ -670,6 +695,26 @@ def is_invalid_board(board: List[CellType], problem: SunGlass) -> bool:
     -------
         矛盾があればTrue
     """
+
+    # どのブリッジにも属せない、孤立したレンズが存在する場合はアウト
+    bridge_cells: Set[int] = set()
+    for bridge in problem.bridge:
+        bridge_cells.add(bridge.cell[0].x + bridge.cell[0].y * problem.width)
+        bridge_cells.add(bridge.cell[-1].x + bridge.cell[-1].y * problem.width)
+    checked_cells: Set[int] = set()
+    for i in range(len(board)):
+        # どのブリッジにも属していない、孤立レンズを検索する
+        if board[i] != CellType.LENS:
+            continue
+        lens = set(find_lens(board, problem.width, i))
+        if len(lens & bridge_cells) != 0:
+            continue
+
+        # 孤立レンズについて、その周囲に不明マスが存在するかを確認する
+        lens_xy = [pos_int_to_tuple(k, problem.width) for k in lens]
+        if len(find_around_unknown_cells(board, problem.width, problem.height, lens_xy)) == 0:
+            # 孤立レンズの周囲に不明マスがない＝ブリッジと接続できないのでアウト
+            return True
 
     return False
 
