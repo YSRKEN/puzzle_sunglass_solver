@@ -706,45 +706,46 @@ def solve_by_tactics(board: List[CellType], problem: SunGlass, show_log_flg=True
     -------
         埋めた後の盤面
     """
+    output_board = board.copy()
     while True:
         # レンズ同士が接触しないように空白を設置
-        next_board = pattern_do_not_join_lenses(board, problem)
-        if not is_equal(board, next_board):
-            board = next_board
+        next_board = pattern_do_not_join_lenses(output_board, problem)
+        if not is_equal(output_board, next_board):
+            output_board = next_board
             if show_log_flg:
                 print('・レンズ同士が接触しないように空白を設置')
-                show_board_data(board, problem)
+                show_board_data(output_board, problem)
             continue
 
         # 各ブリッジの双翼に生えているレンズの、塗りつぶし状態・上下左右の空白状態を同期
-        next_board = pattern_sync_bridge_lenses(board, problem)
-        if not is_equal(board, next_board):
-            board = next_board
+        next_board = pattern_sync_bridge_lenses(output_board, problem)
+        if not is_equal(output_board, next_board):
+            output_board = next_board
             if show_log_flg:
                 print('・塗りつぶし状態・上下左右の空白状態を同期')
-                show_board_data(board, problem)
+                show_board_data(output_board, problem)
             continue
 
         # ヒント数字に従い、ちょうど塗りつぶせるなら塗り潰す
-        next_board = pattern_hint(board, problem)
-        if not is_equal(board, next_board):
-            board = next_board
+        next_board = pattern_hint(output_board, problem)
+        if not is_equal(output_board, next_board):
+            output_board = next_board
             if show_log_flg:
                 print('・ヒント数字に従い塗りつぶせるなら塗り潰す')
-                show_board_data(board, problem)
+                show_board_data(output_board, problem)
             continue
 
         # どのブリッジからも塗りつぶせない位置のマスは空白マス
-        next_board = pattern_can_not_reach(board, problem)
-        if not is_equal(board, next_board):
-            board = next_board
+        next_board = pattern_can_not_reach(output_board, problem)
+        if not is_equal(output_board, next_board):
+            output_board = next_board
             if show_log_flg:
                 print('・どこからも塗り潰せなければそこは空白マス')
-                show_board_data(board, problem)
+                show_board_data(output_board, problem)
             continue
         break
 
-    return board
+    return output_board
 
 
 def is_invalid_board(board: List[CellType], problem: SunGlass) -> bool:
@@ -761,6 +762,37 @@ def is_invalid_board(board: List[CellType], problem: SunGlass) -> bool:
     -------
         矛盾があればTrue
     """
+
+    # ヒント数字の条件をどうしても満たせない場合はアウト
+    for hint in problem.hint:
+        if hint.type == HintType.ROW:
+            # 行についての確認
+            lens_count = 0
+            unknown_count = 0
+            for k in range(problem.width):
+                cell = board[k + hint.index * problem.width]
+                if cell == CellType.LENS:
+                    lens_count += 1
+                elif cell == CellType.UNKNOWN:
+                    unknown_count += 1
+            if lens_count + unknown_count < hint.value:
+                return True
+            if lens_count > hint.value:
+                return True
+        else:
+            # 列についての確認
+            lens_count = 0
+            unknown_count = 0
+            for k in range(problem.height):
+                cell = board[hint.index + k * problem.width]
+                if cell == CellType.LENS:
+                    lens_count += 1
+                elif cell == CellType.UNKNOWN:
+                    unknown_count += 1
+            if lens_count + unknown_count < hint.value:
+                return True
+            if lens_count > hint.value:
+                return True
 
     # どのブリッジにも属せない、孤立したレンズが存在する場合はアウト
     bridge_cells: Set[int] = set()
@@ -785,6 +817,76 @@ def is_invalid_board(board: List[CellType], problem: SunGlass) -> bool:
     return False
 
 
+def is_invalid_board_wrapper(input_board: List[CellType], problem: SunGlass) -> bool:
+    try:
+        temp_board = solve_by_tactics(input_board, problem, False)
+        return is_invalid_board(temp_board, problem)
+    except AlgorithmException:
+        return True
+
+
+def solve_by_1st_absurdum(board: List[CellType], problem: SunGlass, show_log_flg=True) -> List[CellType]:
+    """1段階背理法
+
+    Parameters
+    ----------
+    board
+        盤面
+    problem
+        問題
+    show_log_flg
+        途中経過を表示するならTrue
+
+    Returns
+    -------
+        埋めたあとの盤面
+    """
+
+    output_board = board.copy()
+    while True:
+        # 定石で盤面を埋める
+        board2 = solve_by_tactics(output_board, problem, show_log_flg)
+        if not is_equal(output_board, board2):
+            output_board = board2
+            continue
+
+        if show_log_flg:
+            print('(背理法開始)')
+        flg = False
+        for i in range(len(output_board)):
+            if output_board[i] != CellType.UNKNOWN:
+                continue
+            # print(f'(座標{pos_int_to_tuple(i, problem.width)}に背理法)')
+
+            # レンズと仮定して、矛盾すればそれはレンズではない
+            output_board[i] = CellType.LENS
+            if is_invalid_board_wrapper(output_board, problem):
+                output_board[i] = CellType.BLANK
+                if show_log_flg:
+                    print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}を空白に')
+                    show_board_data(output_board, problem)
+                flg = True
+                break
+
+            # 空白と仮定して、矛盾すればそれは空白ではない
+            output_board[i] = CellType.BLANK
+            if is_invalid_board_wrapper(output_board, problem):
+                output_board[i] = CellType.LENS
+                if show_log_flg:
+                    print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}をレンズに')
+                    show_board_data(output_board, problem)
+                flg = True
+                break
+
+            output_board[i] = CellType.UNKNOWN
+        if not flg:
+            if show_log_flg:
+                print('(背理法終了)')
+            break
+
+    return output_board
+
+
 def solve(problem: SunGlass) -> None:
     """問題データから計算を行い、解答を標準出力で返す
 
@@ -804,53 +906,10 @@ def solve(problem: SunGlass) -> None:
     show_board_data(board, problem)
 
     # 解析
-    def is_invalid_board_wrapper(input_board: List[CellType]) -> bool:
-        try:
-            temp_board = solve_by_tactics(input_board, problem, False)
-            return is_invalid_board(temp_board, problem)
-        except AlgorithmException:
-            return True
-
-    print('【解析】')
-    while True:
-        # 定石で盤面を埋める
-        board2 = solve_by_tactics(board, problem)
-        if not is_equal(board, board2):
-            board = board2
-            continue
-
-        print('(背理法開始)')
-        flg = False
-        for i in range(len(board)):
-            if board[i] != CellType.UNKNOWN:
-                continue
-            # print(f'(座標{pos_int_to_tuple(i, problem.width)}に背理法)')
-
-            # レンズと仮定して、矛盾すればそれはレンズではない
-            board[i] = CellType.LENS
-            if is_invalid_board_wrapper(board):
-                board[i] = CellType.BLANK
-                print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}を空白に')
-                show_board_data(board, problem)
-                flg = True
-                break
-
-            # 空白と仮定して、矛盾すればそれは空白ではない
-            board[i] = CellType.BLANK
-            if is_invalid_board_wrapper(board):
-                board[i] = CellType.LENS
-                print(f'・背理法　座標{pos_int_to_tuple(i, problem.width)}をレンズに')
-                show_board_data(board, problem)
-                flg = True
-                break
-
-            board[i] = CellType.UNKNOWN
-        if not flg:
-            print('(背理法終了)')
-            break
+    board2 = solve_by_1st_absurdum(board, problem)
 
     print('【結果】')
-    show_board_data(board, problem)
+    show_board_data(board2, problem)
 
 
 def solve_from_path(path: str) -> None:
