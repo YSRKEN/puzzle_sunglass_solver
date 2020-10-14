@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 from typing import List, Tuple, Set
 
 from model.CellPos import CellPos
@@ -84,6 +85,7 @@ def find_lens(board: List[CellType], width: int, pos: int, taboo_list: List[int]
     return output
 
 
+@lru_cache(maxsize=None)
 def get_next_pos(pos: int, width: int, board_size: int) -> List[int]:
     """次の座標の一覧を割り出す
 
@@ -116,7 +118,7 @@ def get_next_pos(pos: int, width: int, board_size: int) -> List[int]:
 
 
 def find_lens_max(board: List[CellType], width: int, board_size: int, pos: int, lens_set: Set[int],
-                  taboo_list: List[int] = None) -> List[int]:
+                  taboo_list: Set[int] = None) -> List[int]:
     """その座標を含む、レンズ群の最大サイズを取得する
 
         Parameters
@@ -141,7 +143,10 @@ def find_lens_max(board: List[CellType], width: int, board_size: int, pos: int, 
 
     # タブーリストを初期化
     if taboo_list is None:
-        taboo_list = [pos]
+        taboo_list = set()
+        taboo_list.add(pos)
+
+    print(f'find_lens_max pos={pos} lens={lens_set} taboo_list_length = {len(taboo_list)}')
 
     # 処理開始。現在位置から、上下左右に進んだ位置のマスについて、再帰を行い、結果をmergeする
     output = [pos]
@@ -166,7 +171,9 @@ def find_lens_max(board: List[CellType], width: int, board_size: int, pos: int, 
             continue
 
         # 再帰した結果を追加
-        output += find_lens_max(board, width, board_size, next_pos, lens_set, taboo_list + [next_pos])
+        taboo_list2 = taboo_list.copy()
+        taboo_list2.add(next_pos)
+        output += find_lens_max(board, width, board_size, next_pos, lens_set, taboo_list2)
     return output
 
 
@@ -579,12 +586,14 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
     output = [x for x in board]
     for bridge in problem.bridge:
         # 左翼・右翼のレンズを取得する
+        print('左翼・右翼のレンズを取得する')
         left_point = (bridge.cell[0].x, bridge.cell[0].y)
         right_point = (bridge.cell[-1].x, bridge.cell[-1].y)
         left_lens = find_lens(board, problem.width, left_point[0] + left_point[1] * problem.width)
         right_lens = find_lens(board, problem.width, right_point[0] + right_point[1] * problem.width)
 
         # 右翼・左翼について、「レンズを最大限伸ばした際の範囲」を取得する
+        print('「レンズを最大限伸ばした際の範囲」を取得')
         left_lens_max = [pos_int_to_tuple(x, problem.width) for x in
                          find_lens_max(board, problem.width, len(board),
                                        left_point[0] + left_point[1] * problem.width, set(left_lens))]
@@ -594,6 +603,7 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
 
         # レンズは左右対称になるので、左右対称にできない部分は「レンズを最大限伸ばした際の範囲」から削れる
         # また、ブリッジにおける線対称の軸にあたる部分は、当然塗ることができない
+        print('レンズは左右対称になるので')
         left_lens_max_reverse = calc_reverse_lens(left_lens_max, left_point, right_point)
         right_lens_max_reverse = calc_reverse_lens(right_lens_max, right_point, left_point)
         symmetry_axis = calc_symmetry_axis(left_point, right_point, problem.width, problem.height)
@@ -601,6 +611,7 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
         right_lens_max = (set(right_lens_max) & set(left_lens_max_reverse)) - set(symmetry_axis)
 
         # 「レンズを最大限伸ばした際の範囲」をmergeする
+        print('「レンズを最大限伸ばした際の範囲」をmerge')
         all_lenses = all_lenses | left_lens_max | right_lens_max
 
     # どのレンズからも被覆できない部分は、当然空白マスになる
