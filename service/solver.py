@@ -84,6 +84,92 @@ def find_lens(board: List[CellType], width: int, pos: int, taboo_list: List[int]
     return output
 
 
+def get_next_pos(pos: int, width: int, board_size: int) -> List[int]:
+    """次の座標の一覧を割り出す
+
+    Parameters
+    ----------
+    pos
+        座標
+    width
+        横幅
+    board_size
+        全マス数
+
+    Returns
+    -------
+        次に進めるマスの一覧
+    """
+    output: List[int] = []
+    for offset in (-width, 1, width, -1):
+        # 盤面からはみ出さないように判定
+        if offset == -width and pos < width:
+            continue
+        if offset == 1 and (pos + 1) % width == 0:
+            continue
+        if offset == width and pos + width >= board_size:
+            continue
+        if offset == -1 and pos % width == 0:
+            continue
+        output.append(pos + offset)
+    return output
+
+
+def find_lens_max(board: List[CellType], width: int, board_size: int, pos: int, lens_set: Set[int],
+                  taboo_list: List[int] = None) -> List[int]:
+    """その座標を含む、レンズ群の最大サイズを取得する
+
+        Parameters
+        ----------
+        board
+            盤面
+        width
+            盤面の横幅
+        board_size
+            盤面の大きさ
+        pos
+            座標
+        lens_set
+            レンズ群
+        taboo_list
+            タブーリスト。ここに含まれているものは再度カウントしない
+
+        Returns
+        -------
+            レンズ群における座標の一覧
+        """
+
+    # タブーリストを初期化
+    if taboo_list is None:
+        taboo_list = [pos]
+
+    # 処理開始。現在位置から、上下左右に進んだ位置のマスについて、再帰を行い、結果をmergeする
+    output = [pos]
+    next_pos_list = get_next_pos(pos, width, board_size)
+    for next_pos in next_pos_list:
+        # 次の位置が空白なら無視する
+        if board[next_pos] == CellType.BLANK:
+            continue
+
+        # 次の位置がタブーリストに含まれている場合は無視する
+        if next_pos in taboo_list:
+            continue
+
+        # 次の位置の周囲に他のレンズがある場合は無視する
+        flg = False
+        next_pos_list2 = get_next_pos(next_pos, width, board_size)
+        for next_pos2 in next_pos_list2:
+            if board[next_pos2] == CellType.LENS and next_pos2 not in lens_set:
+                flg = True
+                break
+        if flg:
+            continue
+
+        # 再帰した結果を追加
+        output += find_lens_max(board, width, board_size, next_pos, lens_set, taboo_list + [next_pos])
+    return output
+
+
 def calc_lens_map(board: List[CellType], problem: SunGlass) -> List[int]:
     """タイリングを実施
 
@@ -364,6 +450,167 @@ def pattern_hint(board: List[CellType], problem: SunGlass) -> List[CellType]:
     return output
 
 
+def calc_symmetry_axis(left_point: Tuple[int, int], right_point: Tuple[int, int], width: int, height: int)\
+        -> List[Tuple[int, int]]:
+    """線対称の軸となるマスの座標を割り出す
+
+    Parameters
+    ----------
+    left_point
+        左側の座標
+    right_point
+        右側の座標
+    width
+        横幅
+    height
+        縦幅
+
+    Returns
+    -------
+        線対称の軸となるマスの座標の一覧
+    """
+
+    # 左側・右側の相対関係によって場合分け。
+    # ただし間隔が偶数な場合と奇数な場合とで処理が異なる
+    output: List[Tuple[int, int]] = []
+    if left_point[0] == right_point[0]:
+        # 縦方向
+        if (left_point[1] - right_point[1]) % 2 == 1:
+            y1 = (abs(left_point[1] - right_point[1]) - 1) // 2 + min(left_point[1], right_point[1])
+            y2 = y1 + 1
+            for k in range(width):
+                output.append((k, y1))
+                output.append((k, y2))
+        else:
+            y = (abs(left_point[1] - right_point[1])) // 2 + min(left_point[1], right_point[1])
+            for k in range(width):
+                output.append((k, y))
+        return output
+
+    if left_point[1] == right_point[1]:
+        # 横方向
+        if (left_point[0] - right_point[0]) % 2 == 1:
+            x1 = (abs(left_point[0] - right_point[0]) - 1) // 2 + min(left_point[0], right_point[0])
+            x2 = x1 + 1
+            for k in range(width):
+                output.append((x1, k))
+                output.append((x2, k))
+        else:
+            x = (abs(left_point[0] - right_point[0])) // 2 + min(left_point[0], right_point[0])
+            for k in range(width):
+                output.append((x, k))
+        return output
+
+    # 斜め方向
+    if (left_point[0] - right_point[0]) * (left_point[1] - right_point[1]) > 0:
+        slant_type = 'b'    # バックスラッシュ形
+    else:
+        slant_type = 's'    # スラッシュ形
+
+    if (left_point[0] - right_point[0]) % 2 == 1:
+        # 間隔が偶数なケース
+        if slant_type == 'b':
+            x = (abs(left_point[0] - right_point[0]) - 1) // 2 + min(left_point[0], right_point[0])
+            y = (abs(left_point[1] - right_point[1]) - 1) // 2 + min(left_point[1], right_point[1]) + 1
+            center_point = (x, y)
+        else:
+            x = (abs(left_point[0] - right_point[0]) - 1) // 2 + min(left_point[0], right_point[0])
+            y = (abs(left_point[1] - right_point[1]) - 1) // 2 + min(left_point[1], right_point[1])
+            center_point = (x, y)
+    else:
+        # 間隔が奇数なケース
+        x = (abs(left_point[0] - right_point[0]) - 1) // 2 + min(left_point[0], right_point[0])
+        y = (abs(left_point[1] - right_point[1]) - 1) // 2 + min(left_point[1], right_point[1])
+        center_point = (x, y)
+
+    if slant_type == 'b':
+        output.append(center_point)
+        temp = (center_point[0], center_point[1])
+        while True:
+            temp = (temp[0] + 1, temp[1] - 1)
+            if 0 <= temp[0] < width and 0 <= temp[1] < height:
+                output.append((temp[0], temp[1]))
+            else:
+                break
+        temp = (center_point[0], center_point[1])
+        while True:
+            temp = (temp[0] - 1, temp[1] + 1)
+            if 0 <= temp[0] < width and 0 <= temp[1] < height:
+                output.append((temp[0], temp[1]))
+            else:
+                break
+    else:
+        output.append(center_point)
+        temp = (center_point[0], center_point[1])
+        while True:
+            temp = (temp[0] + 1, temp[1] + 1)
+            if 0 <= temp[0] < width and 0 <= temp[1] < height:
+                output.append((temp[0], temp[1]))
+            else:
+                break
+        temp = (center_point[0], center_point[1])
+        while True:
+            temp = (temp[0] - 1, temp[1] - 1)
+            if 0 <= temp[0] < width and 0 <= temp[1] < height:
+                output.append((temp[0], temp[1]))
+            else:
+                break
+
+    return output
+
+
+def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[CellType]:
+    """どのブリッジからも塗りつぶせない位置のマスは空白マス
+
+    Parameters
+    ----------
+    board
+        盤面
+    problem
+        問題
+
+    Returns
+    -------
+        処理後の盤面
+    """
+
+    # それぞれのブリッジにおいて、伸ばせる最大のレンズの範囲を算出する
+    all_lenses = set()
+    output = [x for x in board]
+    for bridge in problem.bridge:
+        # 左翼・右翼のレンズを取得する
+        left_point = (bridge.cell[0].x, bridge.cell[0].y)
+        right_point = (bridge.cell[-1].x, bridge.cell[-1].y)
+        left_lens = find_lens(board, problem.width, left_point[0] + left_point[1] * problem.width)
+        right_lens = find_lens(board, problem.width, right_point[0] + right_point[1] * problem.width)
+
+        # 右翼・左翼について、「レンズを最大限伸ばした際の範囲」を取得する
+        left_lens_max = [pos_int_to_tuple(x, problem.width) for x in
+                         find_lens_max(board, problem.width, len(board),
+                                       left_point[0] + left_point[1] * problem.width, set(left_lens))]
+        right_lens_max = [pos_int_to_tuple(x, problem.width) for x in
+                          find_lens_max(board, problem.width, len(board),
+                                        right_point[0] + right_point[1] * problem.width, set(right_lens))]
+
+        # レンズは左右対称になるので、左右対称にできない部分は「レンズを最大限伸ばした際の範囲」から削れる
+        # また、ブリッジにおける線対称の軸にあたる部分は、当然塗ることができない
+        left_lens_max_reverse = calc_reverse_lens(left_lens_max, left_point, right_point)
+        right_lens_max_reverse = calc_reverse_lens(right_lens_max, right_point, left_point)
+        symmetry_axis = calc_symmetry_axis(left_point, right_point, problem.width, problem.height)
+        left_lens_max = (set(left_lens_max) & set(right_lens_max_reverse)) - set(symmetry_axis)
+        right_lens_max = (set(right_lens_max) & set(left_lens_max_reverse)) - set(symmetry_axis)
+
+        # 「レンズを最大限伸ばした際の範囲」をmergeする
+        all_lenses = all_lenses | left_lens_max | right_lens_max
+
+    # どのレンズからも被覆できない部分は、当然空白マスになる
+    for y in range(problem.height):
+        for x in range(problem.width):
+            if board[x + y * problem.width] == CellType.UNKNOWN and (x, y) not in all_lenses:
+                output[x + y * problem.width] = CellType.BLANK
+    return output
+
+
 def solve(problem: SunGlass) -> None:
     """問題データから計算を行い、解答を標準出力で返す
 
@@ -403,6 +650,14 @@ def solve(problem: SunGlass) -> None:
         next_board = pattern_hint(board, problem)
         if not is_equal(board, next_board):
             print('・ヒント数字に従い塗りつぶせるなら塗り潰す')
+            board = next_board
+            show_board_data(board, problem)
+            continue
+
+        # どのブリッジからも塗りつぶせない位置のマスは空白マス
+        next_board = pattern_can_not_reach(board, problem)
+        if not is_equal(board, next_board):
+            print('・どこからも塗り潰せなければそこは空白マス')
             board = next_board
             show_board_data(board, problem)
             continue
