@@ -9,6 +9,14 @@ from model.SunGlass import SunGlass
 from service.utility import show_board_data
 
 
+class AlgorithmException(Exception):
+    def __init__(self, message: str):
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
 def create_board_from_problem(problem: SunGlass) -> List[CellType]:
     """問題データから初期盤面を生成する
 
@@ -389,7 +397,7 @@ def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List
         for pos in appending_lens_cells:
             if 0 <= pos[0] < problem.width and 0 <= pos[1] < problem.height:
                 if output[pos[0] + pos[1] * problem.width] != CellType.UNKNOWN:
-                    raise ArithmeticError('塗りつぶし状態を同期できません')
+                    raise AlgorithmException('塗りつぶし状態を同期できません')
                 else:
                     output[pos[0] + pos[1] * problem.width] = CellType.LENS
 
@@ -746,7 +754,7 @@ def solve(problem: SunGlass) -> None:
         try:
             temp_board = solve_by_tactics(input_board, problem)
             return is_invalid_board(temp_board, problem)
-        except ArithmeticError:
+        except AlgorithmException:
             return True
 
     print('【解析】')
