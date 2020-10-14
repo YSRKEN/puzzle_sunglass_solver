@@ -371,6 +371,33 @@ def calc_reverse_lens(lens: List[Tuple[int, int]], from_point: Tuple[int, int], 
             output.append((to_point[0] - cell[0] + from_point[0], to_point[1] + cell[1] - from_point[1]))
     else:
         # ブリッジが斜め方向な場合
+        # FIXME: 次のケースにおける変換ミスを修正。
+        # lens=[(2, 8), (3, 9), (2, 10)], from_point=(2, 9), to_point=(3, 10)のケースで、
+        # [(4, 10), (3, 9), (2, 10)]と返すべきところ、[(2, 10), (3, 11), (4, 10)]と返している
+        """
+        　　　　　　７６　３８　　　　
+        　┏━━━━━━━━━━━━━┓
+        　┃□□□□□□□□□□□□□┃
+        ４┃□□□□□□□□□□□□□┃
+        ５┃□□■・■□□・■・□□□┃
+        ５┃□□□／・□□■・■□□□┃
+        ３┃□□／□■□□□＼・□□□┃
+        　┃□■□□□□□□□■□□□┃
+        ６┃□□□□□□□□□□□□□┃
+        ３┃□□□・■・□□□□■□□┃
+        ３┃□□・■・■□□■／□□□┃
+        　┃□□■・■・□□／／□□□┃
+        ４┃□□・■・□□／■□□□□┃
+        ５┃□□□□□□■□□□□□□┃
+        　┃□□□□□□□□□□□□□┃
+        　┗━━━━━━━━━━━━━┛
+        left_point     (2, 9)
+        right_point    (3, 10)
+        left_blank     [(2, 8), (3, 9), (2, 10)]
+        right_blank    [(4, 10), (3, 9), (2, 10)]
+        left_blank_r   [(2, 10), (3, 11), (4, 10)]
+        right_blank_r  [(2, 10), (1, 9), (2, 8)]
+        """
         for cell in lens:
             output.append((to_point[0] + cell[1] - from_point[1], to_point[1] + cell[0] - from_point[0]))
     return output
@@ -422,6 +449,15 @@ def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List
         right_blank_cells_reverse = calc_reverse_lens(right_blank_cells, right_point, left_point)
         appending_blank_cells = (set(right_blank_cells_reverse) - set(left_blank_cells)) |\
                                 (set(left_blank_cells_reverse) - set(right_blank_cells))
+
+        if (1, 9) in appending_blank_cells:
+            print(left_point)
+            print(right_point)
+            print(left_blank_cells)
+            print(right_blank_cells)
+            print(left_blank_cells_reverse)
+            print(right_blank_cells_reverse)
+
         for pos in appending_blank_cells:
             if 0 <= pos[0] < problem.width and 0 <= pos[1] < problem.height:
                 output[pos[0] + pos[1] * problem.width] = CellType.BLANK
