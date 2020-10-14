@@ -412,7 +412,7 @@ def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List
         appending_lens_cells = (set(right_lens_reverse) - set(left_lens)) | (set(left_lens_reverse) - set(right_lens))
         for pos in appending_lens_cells:
             if 0 <= pos[0] < problem.width and 0 <= pos[1] < problem.height:
-                if output[pos[0] + pos[1] * problem.width] != CellType.UNKNOWN:
+                if output[pos[0] + pos[1] * problem.width] == CellType.BLANK:
                     raise AlgorithmException('塗りつぶし状態を同期できません')
                 else:
                     output[pos[0] + pos[1] * problem.width] = CellType.LENS
