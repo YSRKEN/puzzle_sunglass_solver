@@ -3,6 +3,7 @@ from typing import List, Tuple, Set
 
 from model.CellPos import CellPos
 from model.CellType import CellType
+from model.HintType import HintType
 from model.SunGlass import SunGlass
 from service.utility import show_board_data
 
@@ -305,6 +306,64 @@ def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List
     return output
 
 
+def pattern_hint(board: List[CellType], problem: SunGlass) -> List[CellType]:
+    """ヒント数字に従い、ちょうど塗りつぶせるなら塗り潰す
+
+    Parameters
+    ----------
+    board
+        盤面
+    problem
+        問題
+
+    Returns
+    -------
+        処理後の盤面
+    """
+
+    output = [x for x in board]
+    for hint in problem.hint:
+        # レンズマスの数、空白マスの数、不明マスの位置を調べる
+        lens_cells_count = 0
+        blank_cells_count = 0
+        unknown_cells: List[int] = []
+        if hint.type == HintType.ROW:
+            # 行ヒント
+            pos = hint.index * problem.width
+            for _ in range(0, problem.width):
+                if board[pos] == CellType.LENS:
+                    lens_cells_count += 1
+                elif board[pos] == CellType.BLANK:
+                    blank_cells_count += 1
+                else:
+                    unknown_cells.append(pos)
+                pos += 1
+        else:
+            # 列ヒント
+            pos = hint.index
+            for _ in range(0, problem.height):
+                if board[pos] == CellType.LENS:
+                    lens_cells_count += 1
+                elif board[pos] == CellType.BLANK:
+                    blank_cells_count += 1
+                else:
+                    unknown_cells.append(pos)
+                pos += problem.width
+
+        # 不明マスの数＋レンズマスの数＝ヒントの数字ならば、
+        # 不明マスが全てレンズマスであるはず
+        if len(unknown_cells) + lens_cells_count == hint.value:
+            for pos in unknown_cells:
+                output[pos] = CellType.LENS
+
+        # レンズマスの数＝ヒントの数字ならば、
+        # 不明マスが全て空白マスであるはず
+        if lens_cells_count == hint.value:
+            for pos in unknown_cells:
+                output[pos] = CellType.BLANK
+    return output
+
+
 def solve(problem: SunGlass) -> None:
     """問題データから計算を行い、解答を標準出力で返す
 
@@ -336,6 +395,14 @@ def solve(problem: SunGlass) -> None:
         next_board = pattern_sync_bridge_lenses(board, problem)
         if not is_equal(board, next_board):
             print('・塗りつぶし状態・上下左右の空白状態を同期')
+            board = next_board
+            show_board_data(board, problem)
+            continue
+
+        # ヒント数字に従い、ちょうど塗りつぶせるなら塗り潰す
+        next_board = pattern_hint(board, problem)
+        if not is_equal(board, next_board):
+            print('・ヒント数字に従い塗りつぶせるなら塗り潰す')
             board = next_board
             show_board_data(board, problem)
             continue
