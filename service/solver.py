@@ -370,36 +370,18 @@ def calc_reverse_lens(lens: List[Tuple[int, int]], from_point: Tuple[int, int], 
         for cell in lens:
             output.append((to_point[0] - cell[0] + from_point[0], to_point[1] + cell[1] - from_point[1]))
     else:
-        # ブリッジが斜め方向な場合
-        # FIXME: 次のケースにおける変換ミスを修正。
-        # lens=[(2, 8), (3, 9), (2, 10)], from_point=(2, 9), to_point=(3, 10)のケースで、
-        # [(4, 10), (3, 9), (2, 10)]と返すべきところ、[(2, 10), (3, 11), (4, 10)]と返している
-        """
-        　　　　　　７６　３８　　　　
-        　┏━━━━━━━━━━━━━┓
-        　┃□□□□□□□□□□□□□┃
-        ４┃□□□□□□□□□□□□□┃
-        ５┃□□■・■□□・■・□□□┃
-        ５┃□□□／・□□■・■□□□┃
-        ３┃□□／□■□□□＼・□□□┃
-        　┃□■□□□□□□□■□□□┃
-        ６┃□□□□□□□□□□□□□┃
-        ３┃□□□・■・□□□□■□□┃
-        ３┃□□・■・■□□■／□□□┃
-        　┃□□■・■・□□／／□□□┃
-        ４┃□□・■・□□／■□□□□┃
-        ５┃□□□□□□■□□□□□□┃
-        　┃□□□□□□□□□□□□□┃
-        　┗━━━━━━━━━━━━━┛
-        left_point     (2, 9)
-        right_point    (3, 10)
-        left_blank     [(2, 8), (3, 9), (2, 10)]
-        right_blank    [(4, 10), (3, 9), (2, 10)]
-        left_blank_r   [(2, 10), (3, 11), (4, 10)]
-        right_blank_r  [(2, 10), (1, 9), (2, 8)]
-        """
-        for cell in lens:
-            output.append((to_point[0] + cell[1] - from_point[1], to_point[1] + cell[0] - from_point[0]))
+        if offset[0] * offset[1] < 0:
+            # ブリッジが／方向な場合
+            for cell in lens:
+                cell_to_from = (from_point[0] - cell[0], from_point[1] - cell[1])
+                to_to_cell2 = (-cell_to_from[1], -cell_to_from[0])
+                output.append((to_point[0] + to_to_cell2[0], to_point[1] + to_to_cell2[1]))
+        else:
+            # ブリッジが＼方向な場合
+            for cell in lens:
+                cell_to_from = (from_point[0] - cell[0], from_point[1] - cell[1])
+                to_to_cell2 = (cell_to_from[1], cell_to_from[0])
+                output.append((to_point[0] + to_to_cell2[0], to_point[1] + to_to_cell2[1]))
     return output
 
 
