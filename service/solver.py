@@ -432,14 +432,6 @@ def pattern_sync_bridge_lenses(board: List[CellType], problem: SunGlass) -> List
         appending_blank_cells = (set(right_blank_cells_reverse) - set(left_blank_cells)) |\
                                 (set(left_blank_cells_reverse) - set(right_blank_cells))
 
-        if (1, 9) in appending_blank_cells:
-            print(left_point)
-            print(right_point)
-            print(left_blank_cells)
-            print(right_blank_cells)
-            print(left_blank_cells_reverse)
-            print(right_blank_cells_reverse)
-
         for pos in appending_blank_cells:
             if 0 <= pos[0] < problem.width and 0 <= pos[1] < problem.height:
                 output[pos[0] + pos[1] * problem.width] = CellType.BLANK
@@ -573,8 +565,8 @@ def calc_symmetry_axis(left_point: Tuple[int, int], right_point: Tuple[int, int]
             center_point = (x, y)
     else:
         # 間隔が奇数なケース
-        x = (abs(left_point[0] - right_point[0]) - 1) // 2 + min(left_point[0], right_point[0])
-        y = (abs(left_point[1] - right_point[1]) - 1) // 2 + min(left_point[1], right_point[1])
+        x = (abs(left_point[0] - right_point[0]) - 1) // 2 + min(left_point[0], right_point[0]) + 1
+        y = (abs(left_point[1] - right_point[1]) - 1) // 2 + min(left_point[1], right_point[1]) + 1
         center_point = (x, y)
 
     if slant_type == 'b':
@@ -628,12 +620,12 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
         処理後の盤面
     """
 
-    """
     def print_lens(lens: List[Tuple[int, int]], star_mark=(-1, -1)):
         mark = '□■'
         arr = [0] * (problem.width * problem.height)
         for pos in lens:
-            arr[pos[0] + pos[1] * problem.width] = 1
+            if 0 <= pos[0] < problem.width and 0 <= pos[1] < problem.height:
+                arr[pos[0] + pos[1] * problem.width] = 1
         for i in range(problem.width * problem.height):
             if i == star_mark[0] + star_mark[1] * problem.width:
                 print(f'☆ ', end='')
@@ -641,7 +633,6 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
                 print(f'{mark[arr[i]]} ', end='')
             if i % problem.width == problem.width - 1:
                 print('')
-    """
 
     # それぞれのブリッジにおける、現在のレンズ情報を取得する
     lens_list: List[Tuple[Tuple[int, int], Tuple[int, int], Set[int], Set[int]]] = []
@@ -682,7 +673,7 @@ def pattern_can_not_reach(board: List[CellType], problem: SunGlass) -> List[Cell
         right_lens_max = (set(right_lens_max) & set(left_lens_max_reverse)) - set(symmetry_axis)
 
         """
-        if (1, 6) not in left_lens_max:
+        if (1, 3) not in left_lens_max:
             print('[board]')
             show_board_data(board, problem)
             print(f'symmetry_axis')
